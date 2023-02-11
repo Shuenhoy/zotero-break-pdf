@@ -1,87 +1,140 @@
-import {
-  BasicExampleFactory,
-  HelperExampleFactory,
-  KeyExampleFactory,
-  PromptExampleFactory,
-  UIExampleFactory,
-} from "./modules/examples";
+
 import { config } from "../package.json";
 import { getString, initLocale } from "./modules/locale";
 import { registerPrefsScripts } from "./modules/preferenceScript";
 
 async function onStartup() {
-  await Promise.all([
-    Zotero.initializationPromise,
-    Zotero.unlockPromise,
-    Zotero.uiReadyPromise,
-  ]);
-  initLocale();
-  ztoolkit.ProgressWindow.setIconURI(
-    "default",
-    `chrome://${config.addonRef}/content/icons/favicon.png`
-  );
+    await Promise.all([
+        Zotero.initializationPromise,
+        Zotero.unlockPromise,
+        Zotero.uiReadyPromise,
+    ]);
+    initLocale();
+    ztoolkit.ProgressWindow.setIconURI(
+        "default",
+        `chrome://${config.addonRef}/content/icons/favicon.png`
+    );
+    ztoolkit.log("????")
+    const callback = {
+        notify: async (
+            event: _ZoteroTypes.Notifier.Event,
+            type: _ZoteroTypes.Notifier.Type,
+            ids: string[] | number[],
+            extraData: { [key: string]: any }
+        ) => {
 
-  const popupWin = new ztoolkit.ProgressWindow(config.addonName, {
-    closeOnClick: true,
-    closeTime: -1,
-  })
-    .createLine({
-      text: getString("startup.begin"),
-      type: "default",
-      progress: 0,
-    })
-    .show();
+            addon.hooks.onNotify(event, type, ids as string[], extraData);
+        },
+    };
 
-  BasicExampleFactory.registerPrefs();
+    // Register the callback in Zotero as an item observer
+    const notifierID = Zotero.Notifier.registerObserver(callback, [
+        "tab",
+        "item",
+        "file",
+    ]);
 
-  BasicExampleFactory.registerNotifier();
-
-  KeyExampleFactory.registerShortcuts();
-
-  await Zotero.Promise.delay(1000);
-  popupWin.changeLine({
-    progress: 30,
-    text: `[30%] ${getString("startup.begin")}`,
-  });
-
-  UIExampleFactory.registerStyleSheet();
-
-  UIExampleFactory.registerRightClickMenuItem();
-
-  UIExampleFactory.registerRightClickMenuPopup();
-
-  UIExampleFactory.registerWindowMenuWithSeparator();
-
-  await UIExampleFactory.registerExtraColumn();
-
-  await UIExampleFactory.registerExtraColumnWithCustomCell();
-
-  await UIExampleFactory.registerCustomCellRenderer();
-
-  await UIExampleFactory.registerCustomItemBoxRow();
-
-  UIExampleFactory.registerLibraryTabPanel();
-
-  await UIExampleFactory.registerReaderTabPanel();
-
-  PromptExampleFactory.registerAlertPromptExample();
-
-  await Zotero.Promise.delay(1000);
-
-  popupWin.changeLine({
-    progress: 100,
-    text: `[100%] ${getString("startup.finish")}`,
-  });
-  popupWin.startCloseTimer(5000);
-
-  addon.hooks.onDialogEvents("dialogExample");
 }
 
 function onShutdown(): void {
-  ztoolkit.unregisterAll();
-  // Remove addon object
-  addon.data.alive = false;
-  delete Zotero[config.addonInstance];
+    ztoolkit.unregisterAll();
+    // Remove addon object
+    addon.data.alive = false;
+    delete Zotero[config.addonInstance];
+}
+
+function addEverythingForTab(readerWindow: Window) {
+
+    const toggle: HTMLButtonElement =
+        readerWindow.document.createElement('button')
+
+    toggle.setAttribute('id', 'night-toggle')
+
+
+    const icon = '✨'
+    toggle.textContent = icon
+
+    toggle.setAttribute('class', "toolbarButton")
+    let area = false;
+
+    let unlisten: (() => void)[] = []
+
+    function unlistenAll() {
+        for (const u of unlisten) {
+            u();
+        }
+    }
+    toggle.onclick = () => {
+        area = !area;
+        if (area) {
+            ztoolkit.log("entering...")
+            const nodes = readerWindow.document.querySelectorAll("div#viewer > div.page")
+
+            for (const node of nodes) {
+                let div: HTMLDivElement | null = null;
+                let sx = 0, sy = 0
+                function mousedown(event: MouseEventInit) {
+                    div = readerWindow.document.createElement("div");
+                    div.style.position = "absolute";
+
+                    div.style.background = "blue"
+                    div.style.opacity = "30%"
+                    node.appendChild(div)
+                    sx = event.clientX!;
+                    sy = event.clientY!;
+                    ztoolkit.log("md", event.clientX, event.clientY);
+                }
+                function mousemove(event: MouseEventInit) {
+                    (event as MouseEvent).preventDefault();
+
+                    if (!div) return;
+
+                    const ex = event.clientX!, ey = event.clientY!
+
+                    // set div's left, top, width and height
+                    const width = Math.abs(ex - sx), height = Math.abs(ey - sy)
+                    const left = Math.min(sx, ex), top = Math.min(sy, ey);
+                    div.style.left = `${left}px`;
+                    div.style.top = `${top}px`;
+                    div.style.width = `${width}px`;
+                    div.style.height = `${height}px`;
+
+                    ztoolkit.log(event.clientX, event.clientY);
+
+                }
+                function mouseup(event: MouseEventInit) {
+                    (event as MouseEvent).preventDefault();
+                    if (!div) return;
+
+                    node.removeChild(div);
+                    ztoolkit.log("e", event.clientX, event.clientY);
+
+                    unlistenAll();
+                }
+                node.addEventListener("mousedown", mousedown);
+                node.addEventListener("mousemove", mousemove);
+                node.addEventListener("mouseup", mouseup);
+                unlisten.push(() => {
+                    node.removeEventListener("mousedown", mousedown);
+                    node.removeEventListener("mousemove", mousemove);
+                    node.removeEventListener("mouseup", mouseup);
+                    if (div) { node.removeChild(div); }
+                })
+            }
+        } else {
+            unlistenAll();
+        }
+    }
+
+    const middleToolbar = readerWindow.document.querySelector(
+        '#toolbarViewerMiddle',
+    )
+
+    if (!middleToolbar) {
+        return
+    }
+
+    middleToolbar.prepend(toggle)
 }
 
 /**
@@ -89,22 +142,34 @@ function onShutdown(): void {
  * Any operations should be placed in a function to keep this funcion clear.
  */
 async function onNotify(
-  event: string,
-  type: string,
-  ids: Array<string>,
-  extraData: { [key: string]: any }
+    event: string,
+    type: string,
+    ids: Array<string>,
+    extraData: { [key: string]: any }
 ) {
-  // You can add your code to the corresponding notify type
-  ztoolkit.log("notify", event, type, ids, extraData);
-  if (
-    event == "select" &&
-    type == "tab" &&
-    extraData[ids[0]].type == "reader"
-  ) {
-    BasicExampleFactory.exampleNotifierCallback();
-  } else {
-    return;
-  }
+    ztoolkit.log("notify", event, type, ids, extraData);
+
+    if (event === 'add') {
+
+        // const tabWindow = this.getTabWindowById(ids[0])
+        const reader = Zotero.Reader.getByTabID(ids[0])
+        await reader._initPromise
+        const tabWindow = reader._iframeWindow as Window
+
+        switch (tabWindow.document.readyState) {
+            // @ts-expect-error uninitialized does exist actually
+            case 'uninitialized': {
+                setTimeout(() => {
+                    addEverythingForTab(tabWindow)
+
+                }, 300)
+                return
+            }
+            case 'complete': {
+                addEverythingForTab(tabWindow)
+            }
+        }
+    }
 }
 
 /**
@@ -114,51 +179,20 @@ async function onNotify(
  * @param data event data
  */
 async function onPrefsEvent(type: string, data: { [key: string]: any }) {
-  switch (type) {
-    case "load":
-      registerPrefsScripts(data.window);
-      break;
-    default:
-      return;
-  }
+    switch (type) {
+        case "load":
+            registerPrefsScripts(data.window);
+            break;
+        default:
+            return;
+    }
 }
 
 function onShortcuts(type: string) {
-  switch (type) {
-    case "larger":
-      KeyExampleFactory.exampleShortcutLargerCallback();
-      break;
-    case "smaller":
-      KeyExampleFactory.exampleShortcutSmallerCallback();
-      break;
-    case "confliction":
-      KeyExampleFactory.exampleShortcutConflictingCallback();
-      break;
-    default:
-      break;
-  }
 }
 
 function onDialogEvents(type: string) {
-  switch (type) {
-    case "dialogExample":
-      HelperExampleFactory.dialogExample();
-      break;
-    case "clipboardExample":
-      HelperExampleFactory.clipboardExample();
-      break;
-    case "filePickerExample":
-      HelperExampleFactory.filePickerExample();
-      break;
-    case "progressWindowExample":
-      HelperExampleFactory.progressWindowExample();
-      break;
-    case "vtableExample":
-      HelperExampleFactory.vtableExample();
-      break;
-    default:
-      break;
-  }
+
 }
 
 // Add your hooks here. For element click, etc.
@@ -166,10 +200,10 @@ function onDialogEvents(type: string) {
 // Otherwise the code would be hard to read and maintian.
 
 export default {
-  onStartup,
-  onShutdown,
-  onNotify,
-  onPrefsEvent,
-  onShortcuts,
-  onDialogEvents,
+    onStartup,
+    onShutdown,
+    onNotify,
+    onPrefsEvent,
+    onShortcuts,
+    onDialogEvents,
 };
