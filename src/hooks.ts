@@ -3,6 +3,38 @@ import { config } from "../package.json";
 import { getString, initLocale } from "./modules/locale";
 import { registerPrefsScripts } from "./modules/preferenceScript";
 
+class CopyHelper {
+    transferable: any;
+    clipboardService: any;
+
+    constructor() {
+        this.transferable = Components.classes[
+            "@mozilla.org/widget/transferable;1"
+        ].createInstance(Components.interfaces.nsITransferable);
+        this.clipboardService = Components.classes[
+            "@mozilla.org/widget/clipboard;1"
+        ].getService(Components.interfaces.nsIClipboard);
+    }
+
+    public addText(source: string, type: "text/html" | "text/unicode") {
+        const str = Components.classes[
+            "@mozilla.org/supports-string;1"
+        ].createInstance(Components.interfaces.nsISupportsString);
+        str.data = source;
+        this.transferable.addDataFlavor(type);
+        this.transferable.setTransferData(type, str, source.length * 2);
+        return this;
+    }
+
+    public copy() {
+        this.clipboardService.setData(
+            this.transferable,
+            null,
+            Components.interfaces.nsIClipboard.kGlobalClipboard
+        );
+    }
+}
+
 async function onStartup() {
     await Promise.all([
         Zotero.initializationPromise,
@@ -14,7 +46,6 @@ async function onStartup() {
         "default",
         `chrome://${config.addonRef}/content/icons/favicon.png`
     );
-    ztoolkit.log("????")
     const callback = {
         notify: async (
             event: _ZoteroTypes.Notifier.Event,
@@ -51,7 +82,7 @@ function addEverythingForTab(readerWindow: Window) {
     toggle.setAttribute('id', 'night-toggle')
 
 
-    const icon = '✨'
+    const icon = 'B'
     toggle.textContent = icon
 
     toggle.setAttribute('class', "toolbarButton")
@@ -63,33 +94,41 @@ function addEverythingForTab(readerWindow: Window) {
         for (const u of unlisten) {
             u();
         }
+        unlisten = [];
     }
     toggle.onclick = () => {
         area = !area;
         if (area) {
-            ztoolkit.log("entering...")
+            toggle.style.background = "#e3e3ff"
             const nodes = readerWindow.document.querySelectorAll("div#viewer > div.page")
 
-            for (const node of nodes) {
+            for (const [id, node] of nodes.entries()) {
+                const selection = node.querySelector("canvas.selectionCanvas") as HTMLCanvasElement
+                selection.style.display = "none";
+
                 let div: HTMLDivElement | null = null;
                 let sx = 0, sy = 0
                 function mousedown(event: MouseEventInit) {
+                    const ev = event as MouseEvent
+                    ev.preventDefault();
+
                     div = readerWindow.document.createElement("div");
                     div.style.position = "absolute";
 
                     div.style.background = "blue"
                     div.style.opacity = "30%"
                     node.appendChild(div)
-                    sx = event.clientX!;
-                    sy = event.clientY!;
-                    ztoolkit.log("md", event.clientX, event.clientY);
+                    sx = ev.offsetX!;
+                    sy = ev.offsetY!;
                 }
                 function mousemove(event: MouseEventInit) {
-                    (event as MouseEvent).preventDefault();
+                    const ev = event as MouseEvent
+
+                    ev.preventDefault();
 
                     if (!div) return;
 
-                    const ex = event.clientX!, ey = event.clientY!
+                    const ex = ev.offsetX!, ey = ev.offsetY!
 
                     // set div's left, top, width and height
                     const width = Math.abs(ex - sx), height = Math.abs(ey - sy)
@@ -99,17 +138,32 @@ function addEverythingForTab(readerWindow: Window) {
                     div.style.width = `${width}px`;
                     div.style.height = `${height}px`;
 
-                    ztoolkit.log(event.clientX, event.clientY);
 
                 }
                 function mouseup(event: MouseEventInit) {
-                    (event as MouseEvent).preventDefault();
+                    const ev = event as MouseEvent
+
+                    ev.preventDefault();
                     if (!div) return;
 
-                    node.removeChild(div);
-                    ztoolkit.log("e", event.clientX, event.clientY);
+                    const ex = ev.offsetX!, ey = ev.offsetY!
+                    const width = Math.abs(ex - sx), height = Math.abs(ey - sy)
+                    const left = Math.min(sx, ex), top = Math.min(sy, ey);
 
-                    unlistenAll();
+                    const pageWidth = node.clientWidth, pageHeight = node.clientHeight
+
+                    const item = Zotero.Items.get(Zotero.Reader.getByTabID(Zotero_Tabs.selectedID).itemID!)
+
+                    const json = JSON.stringify({
+                        url: `zotero://${item.key}/${(item as any).getFilename()}`,
+                        page: id + 1,
+                        rect: [left / pageWidth, top / pageHeight, height / pageWidth, width / pageHeight]
+                    });
+                    new CopyHelper().addText(
+                        "```pdf\n" + json + "\n```"
+                        , "text/unicode").copy();
+                    node.removeChild(div);
+
                 }
                 node.addEventListener("mousedown", mousedown);
                 node.addEventListener("mousemove", mousemove);
@@ -118,10 +172,12 @@ function addEverythingForTab(readerWindow: Window) {
                     node.removeEventListener("mousedown", mousedown);
                     node.removeEventListener("mousemove", mousemove);
                     node.removeEventListener("mouseup", mouseup);
+                    selection.style.display = "block";
                     if (div) { node.removeChild(div); }
                 })
             }
         } else {
+            toggle.style.removeProperty("background");
             unlistenAll();
         }
     }
@@ -147,7 +203,6 @@ async function onNotify(
     ids: Array<string>,
     extraData: { [key: string]: any }
 ) {
-    ztoolkit.log("notify", event, type, ids, extraData);
 
     if (event === 'add') {
 

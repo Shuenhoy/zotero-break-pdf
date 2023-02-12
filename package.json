@@ -1,14 +1,14 @@
 {
-  "name": "zotero-addon-template",
+  "name": "zotero-break-pdf",
   "version": "0.1.5",
-  "description": "Zotero Addon Template",
+  "description": "Zotero Break PDF",
   "config": {
-    "addonName": "Zotero Addon Template",
+    "addonName": "Zotero Break PDF",
     "addonID": "break-pdf@ryon.ren",
     "addonRef": "break-pdf",
     "addonInstance": "AddonTemplate",
-    "releasepage": "https://github.com/windingwind/zotero-addon-template/releases/latest/download/zotero-addon-template.xpi",
-    "updaterdf": "https://raw.githubusercontent.com/windingwind/zotero-addon-template/bootstrap/update.json"
+    "releasepage": "https://github.com/Shuenhoy/zotero-break-pdf/releases/latest/download/zotero-break-pdf.xpi",
+    "updaterdf": "https://raw.githubusercontent.com/Shuenhoy/zotero-break-pdf/bootstrap/update.json"
   },
   "main": "src/index.ts",
   "scripts": {
@@ -28,14 +28,14 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/windingwind/zotero-addon-template.git"
+    "url": "git+https://github.com/Shuenhoy/zotero-break-pdf.git"
   },
-  "author": "windingwind",
+  "author": "Shuenhoy",
   "license": "AGPL-3.0-or-later",
   "bugs": {
-    "url": "https://github.com/windingwind/zotero-addon-template/issues"
+    "url": "https://github.com/Shuenhoy/zotero-break-pdf/issues"
   },
-  "homepage": "https://github.com/windingwind/zotero-addon-template#readme",
+  "homepage": "https://github.com/Shuenhoy/zotero-break-pdf#readme",
   "dependencies": {
     "zotero-plugin-toolkit": "^2.0.1"
   },
