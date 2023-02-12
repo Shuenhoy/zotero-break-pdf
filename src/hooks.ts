@@ -157,7 +157,7 @@ function addEverythingForTab(readerWindow: Window) {
                     const json = JSON.stringify({
                         url: `zotero://${item.key}/${(item as any).getFilename()}`,
                         page: id + 1,
-                        rect: [left / pageWidth, top / pageHeight, height / pageWidth, width / pageHeight]
+                        rect: [left / pageWidth, top / pageHeight, height / pageHeight, width / pageWidth]
                     });
                     new CopyHelper().addText(
                         "```pdf\n" + json + "\n```"
