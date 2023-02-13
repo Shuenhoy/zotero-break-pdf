@@ -1,4 +1,5 @@
 
+import { read } from "fs";
 import { config } from "../package.json";
 import { getString, initLocale } from "./modules/locale";
 import { registerPrefsScripts } from "./modules/preferenceScript";
@@ -66,6 +67,11 @@ async function onStartup() {
     ]);
 
 }
+function addCssToDocument(doc: Document, css: string) {
+    var style = doc.createElement('style')
+    style.innerHTML = css
+    doc.head.appendChild(style)
+}
 
 function onShutdown(): void {
     ztoolkit.unregisterAll();
@@ -75,11 +81,33 @@ function onShutdown(): void {
 }
 
 function addEverythingForTab(readerWindow: Window) {
+    if (readerWindow.document.querySelector("button#break-pdf-toggle")) return;
+    addCssToDocument(readerWindow.document,
+        `
+        .break-pdf-selecting .selectionCanvas {
+            display: none !important;
+        }
+        .break-pdf-selecting .textLayer {
+            display: none !important;
+        }
+        .break-pdf-selecting .canvasWrapper {
+            cursor: default !important;
+        }
+        .break-pdf-selection  {
+            background: blue;
+            position: absolute;
+            opacity: 30%;
+            -moz-opacity: 30%;
+        }
+        .break-pdf-selecting #pagePopupContainer {
+            display: none !important;
+        }
+        `)
 
     const toggle: HTMLButtonElement =
         readerWindow.document.createElement('button')
 
-    toggle.setAttribute('id', 'night-toggle')
+    toggle.setAttribute('id', 'break-pdf-toggle')
 
 
     const icon = 'B'
@@ -100,35 +128,37 @@ function addEverythingForTab(readerWindow: Window) {
         area = !area;
         if (area) {
             toggle.style.background = "#e3e3ff"
-            const nodes = readerWindow.document.querySelectorAll("div#viewer > div.page")
-
+            const nodes = readerWindow.document.querySelectorAll("div#viewer > div.page");
+            readerWindow.document.querySelector("#viewerContainer")?.classList.add("break-pdf-selecting")
             for (const [id, node] of nodes.entries()) {
-                const selection = node.querySelector("canvas.selectionCanvas") as HTMLCanvasElement
-                selection.style.display = "none";
 
                 let div: HTMLDivElement | null = null;
-                let sx = 0, sy = 0
+                let sx = 0, sy = 0;
+                let ex = 0, ey = 0;
                 function mousedown(event: MouseEventInit) {
                     const ev = event as MouseEvent
-                    ev.preventDefault();
+                    if (!(ev.target as HTMLElement).closest("canvas")) return;
+                    if (!div) {
 
-                    div = readerWindow.document.createElement("div");
-                    div.style.position = "absolute";
+                        div = readerWindow.document.createElement("div");
+                        div.style.position = "absolute";
 
-                    div.style.background = "blue"
-                    div.style.opacity = "30%"
-                    node.appendChild(div)
-                    sx = ev.offsetX!;
-                    sy = ev.offsetY!;
+                        div.style.background = "blue"
+                        div.style.opacity = "30%"
+
+                        node.appendChild(div)
+                        sx = ev.offsetX!;
+                        sy = ev.offsetY!;
+                    }
+
+                    return false;
                 }
                 function mousemove(event: MouseEventInit) {
                     const ev = event as MouseEvent
-
-                    ev.preventDefault();
-
+                    if (!(ev.target as HTMLElement).closest("canvas")) return;
                     if (!div) return;
 
-                    const ex = ev.offsetX!, ey = ev.offsetY!
+                    ex = ev.offsetX!, ey = ev.offsetY!
 
                     // set div's left, top, width and height
                     const width = Math.abs(ex - sx), height = Math.abs(ey - sy)
@@ -138,15 +168,12 @@ function addEverythingForTab(readerWindow: Window) {
                     div.style.width = `${width}px`;
                     div.style.height = `${height}px`;
 
-
+                    return false;
                 }
                 function mouseup(event: MouseEventInit) {
                     const ev = event as MouseEvent
-
-                    ev.preventDefault();
                     if (!div) return;
 
-                    const ex = ev.offsetX!, ey = ev.offsetY!
                     const width = Math.abs(ex - sx), height = Math.abs(ey - sy)
                     const left = Math.min(sx, ex), top = Math.min(sy, ey);
 
@@ -163,7 +190,9 @@ function addEverythingForTab(readerWindow: Window) {
                         "```pdf\n" + json + "\n```"
                         , "text/unicode").copy();
                     node.removeChild(div);
+                    div = null;
 
+                    return false;
                 }
                 node.addEventListener("mousedown", mousedown);
                 node.addEventListener("mousemove", mousemove);
@@ -172,12 +201,13 @@ function addEverythingForTab(readerWindow: Window) {
                     node.removeEventListener("mousedown", mousedown);
                     node.removeEventListener("mousemove", mousemove);
                     node.removeEventListener("mouseup", mouseup);
-                    selection.style.display = "block";
                     if (div) { node.removeChild(div); }
                 })
             }
         } else {
             toggle.style.removeProperty("background");
+            readerWindow.document.querySelector(".viewerContainer")?.classList.remove("break-pdf-selecting");
+
             unlistenAll();
         }
     }
@@ -203,7 +233,6 @@ async function onNotify(
     ids: Array<string>,
     extraData: { [key: string]: any }
 ) {
-
     if (event === 'add') {
 
         // const tabWindow = this.getTabWindowById(ids[0])
