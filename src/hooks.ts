@@ -223,10 +223,6 @@ function addEverythingForTab(readerWindow: Window) {
     middleToolbar.prepend(toggle)
 }
 
-/**
- * This function is just an example of dispatcher for Notify events.
- * Any operations should be placed in a function to keep this funcion clear.
- */
 async function onNotify(
     event: string,
     type: string,
