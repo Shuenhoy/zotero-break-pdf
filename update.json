@@ -3,7 +3,7 @@
     "break-pdf@ryon.ren": {
       "updates": [
         {
-          "version": "0.2.1",
+          "version": "0.2.2",
           "update_link": "https://github.com/Shuenhoy/zotero-break-pdf/releases/latest/download/zotero-break-pdf.xpi",
           "applications": {
             "gecko": {
@@ -12,7 +12,7 @@
           }
         },
         {
-          "version": "0.2.1",
+          "version": "0.2.2",
           "update_link": "https://github.com/Shuenhoy/zotero-break-pdf/releases/latest/download/zotero-break-pdf.xpi",
           "applications": {
             "zotero": {
