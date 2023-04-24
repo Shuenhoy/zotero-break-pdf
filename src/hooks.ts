@@ -206,7 +206,7 @@ function addEverythingForTab(readerWindow: Window) {
             }
         } else {
             toggle.style.removeProperty("background");
-            readerWindow.document.querySelector(".viewerContainer")?.classList.remove("break-pdf-selecting");
+            readerWindow.document.querySelector("#viewerContainer")?.classList.remove("break-pdf-selecting");
 
             unlistenAll();
         }
